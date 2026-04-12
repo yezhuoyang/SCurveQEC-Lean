@@ -1,0 +1,10 @@
+name = "SCurveQEC"
+defaultTargets = ["SCurveQEC"]
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "master"
+
+[[lean_lib]]
+name = "SCurveQEC"
