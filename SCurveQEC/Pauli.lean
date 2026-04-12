@@ -126,6 +126,14 @@ instance : Mul (Pauli n) := ⟨mul⟩
 @[simp] theorem mul_self (P : Pauli n) : P * P = 1 := by
   funext i; simp [mul_apply]
 
+/-- Every Pauli is its own inverse. -/
+instance : Inv (Pauli n) := ⟨id⟩
+
+@[simp] theorem inv_apply (P : Pauli n) (i : Fin n) : P⁻¹ i = P i := rfl
+
+@[simp] theorem mul_inv_self (P : Pauli n) : P * P⁻¹ = 1 := mul_self P
+@[simp] theorem inv_mul_self (P : Pauli n) : P⁻¹ * P = 1 := mul_self P
+
 /-- The support of a Pauli: positions where it is not `I`. -/
 def support (P : Pauli n) : Finset (Fin n) :=
   Finset.univ.filter fun i => P i ≠ SinglePauli.I
@@ -141,7 +149,9 @@ def weight (P : Pauli n) : ℕ := (support P).card
 
 theorem weight_le (P : Pauli n) : weight P ≤ n := by
   unfold weight
-  exact (support P).card_le_univ.trans_eq (Finset.card_univ)
+  calc (support P).card ≤ (Finset.univ : Finset (Fin n)).card :=
+        Finset.card_le_univ _
+    _ = n := by simp
 
 /-- The set of Paulis of weight exactly `w`. -/
 def ofWeight (n w : ℕ) : Finset (Pauli n) :=

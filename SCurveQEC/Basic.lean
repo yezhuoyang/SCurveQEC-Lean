@@ -64,11 +64,13 @@ theorem Thm_1A_local
 /-- **Theorem 1.A (Fault-tolerance):** `P_L^w = 0` for `w ≤ t`. -/
 theorem Thm_1A_fault_tolerance {w : ℕ} (h : w ≤ 𝒞.threshold) :
     P_L 𝒞 D w = 0 := by
+  classical
   unfold P_L
   split_ifs with hempty
   · rfl
   · -- `logicalFailures D w` is empty: no weight-w error causes logical error.
-    have : logicalFailures D w = ∅ := by
+    have hzero : (logicalFailures D w).card = 0 := by
+      rw [Finset.card_eq_zero]
       unfold logicalFailures
       apply Finset.filter_eq_empty_iff.mpr
       intro E hE
@@ -81,7 +83,7 @@ theorem Thm_1A_fault_tolerance {w : ℕ} (h : w ≤ 𝒞.threshold) :
       unfold PerfectMWPM.succeeds at hsucc
       unfold PerfectMWPM.causesLogicalError StabilizerCode.logicalErrors at hlog
       exact hlog.2 hsucc
-    rw [this]
+    rw [hzero]
     simp
 
 /-! ## Theorem 1.B: Range -/

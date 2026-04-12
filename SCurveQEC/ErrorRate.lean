@@ -38,10 +38,15 @@ theorem weightedErrors_iff {n w : ℕ} {E : Pauli n} :
 
 end Pauli
 
-/-- The Finset of weight-`w` errors on which `D` produces a logical error. -/
+/-- The Finset of weight-`w` errors on which `D` produces a logical error.
+
+We use `Classical.dec` to obtain a `DecidablePred` instance; since the
+definition is `noncomputable` this is fine. -/
 noncomputable def logicalFailures {n : ℕ} {𝒞 : StabilizerCode n}
-    (D : PerfectMWPM 𝒞) (w : ℕ) : Finset (Pauli n) :=
-  (Pauli.weightedErrors n w).filter (fun E => PerfectMWPM.causesLogicalError D E)
+    (D : PerfectMWPM 𝒞) (w : ℕ) : Finset (Pauli n) := by
+  classical
+  exact (Pauli.weightedErrors n w).filter
+    (fun E => PerfectMWPM.causesLogicalError D E)
 
 open Classical in
 /-- The weight-conditional logical error rate `P_L^w`. -/
