@@ -91,38 +91,99 @@ theorem Thm_1B_range (w : ℕ) : 0 ≤ P_L 𝒞 D w ∧ P_L 𝒞 D w ≤ 1 :=
 /-! ## Theorem 1.C: Monotonicity in w
 
 Monotonicity of `P_L^w` in `w` is a genuinely nontrivial combinatorial
-statement.  A direct coupling between logical failures at weights `w`
-and `w+1` does *not* work: adding a random fault to a failing error
-can turn it into a success (the decoder may then choose a different,
-correct minimum-weight representative), so we cannot inject
-`fail(w) ↪ fail(w+1)` by simply "adjoin a fault".
+statement.  Below we **reformulate it as a cleaner integer-valued
+claim** (the "pair inequality") and isolate this as the single open
+step.
 
-A cleaner formulation is the **pair inequality**.  Let
-`R = {(E, E') | wt(E)=w, wt(E')=w+1, E' = E·P for some weight-1 P
-outside supp(E)}`.  Decompose:
+### Reformulation: the pair inequality
 
-* `R_FS := {(E, E') ∈ R : E fails and E' succeeds}`
-* `R_SF := {(E, E') ∈ R : E succeeds and E' fails}`.
+Let `fail(w) := logicalFailures D w` (size `Nfail w`).
+Let `wt(w) := Pauli.weightedErrors n w` (size `Nwt w = C(n, w) · 3^w`).
+Observe the binomial ratio identity:
 
-Monotonicity `P_L^w ≤ P_L^{w+1}` is **equivalent** to the inequality
-`|R_FS| ≤ |R_SF|` (by counting: pairs on each side satisfy the same
-double-counting identities, and the difference between
-`|fail(w)| · 3(n-w)` and `|fail(w+1)| · (w+1)` is exactly
-`|R_FS| - |R_SF|`).
+`Nwt (w+1) / Nwt w = 3 (n - w) / (w + 1)`.
 
-Whether `|R_FS| ≤ |R_SF|` always holds --- i.e.\ whether "random extra
-faults break more than fix" under perfect MWPM --- is an open question
-in the abstract setting of this file.  For specific codes it is known
-(e.g.\ surface codes, via the percolation/coupling arguments of
-Dennis--Kitaev--Landahl--Preskill); we treat the general case as
-`sorry` and return to it for the surface-code specialisation in
-a later file.
+Hence `P_L^w ≤ P_L^{w+1}` (a ratio inequality) is **equivalent** to
+the following **integer** inequality:
+
+`Nfail w · 3 (n - w) ≤ Nfail (w+1) · (w + 1).      (PAIR-INEQ)`
+
+This inequality has a natural pair-counting interpretation.  Define
+the pair set
+`R := {(E, P) | wt(E) = w, wt(P) = 1, supp(P) ∩ supp(E) = ∅}`.
+Each `(E, P) ∈ R` is a pair where `E · P` has weight `w + 1`.
+A double-counting argument gives:
+
+* `|R with E failing|     = Nfail w · 3 (n - w)`  (LHS of PAIR-INEQ)
+* `|R with (E·P) failing| = Nfail (w+1) · (w + 1)` (RHS of PAIR-INEQ)
+
+Writing each side as a disjoint union over four (FF, FS, SF, SS)
+subcases --- where the letter codes whether `E` and `E·P` fail or
+succeed --- the pair inequality reduces further to
+
+`|R_FS| ≤ |R_SF|,    (CORE)`
+
+where `R_FS := {(E,P) ∈ R : E fails, E·P succeeds}` and
+`R_SF := {(E,P) ∈ R : E succeeds, E·P fails}`.
+
+### Status of the core inequality
+
+The `CORE` inequality says: *the number of weight-w failures that are
+"rescued" by a random extra fault is at most the number of weight-w
+successes that are "broken" by a random extra fault.*
+
+Attempts that do NOT close the proof:
+
+1. *Identity injection `R_FS ↪ R_SF`*: fails because the weights
+   and positions do not align.
+2. *Involution via logical multiplication* `(E, P) ↦ (L·E, P)` for
+   some fixed `L ∈ logicalErrors`: swaps the failure status of `E`
+   but does not preserve `wt(E) = w` (since `wt(L) ≥ d`).
+3. *Syndrome-wise symmetry*: within each fixed syndrome coset the
+   failure set is uniform, but the single-fault map mixes syndromes
+   non-uniformly.
+4. *Detailed balance / probabilistic coupling*: the expected number
+   of "fixes" and "breaks" under a random added fault is not obvi-
+   ously balanced without further structural hypotheses on the code.
+
+I believe `CORE` to be **true in full generality** but the proof
+requires either a code-specific argument (e.g.\ percolation on the
+Pauli lattice for surface codes) or an inequality from coding theory
+(e.g.\ a version of the LYM / Harper / FKG inequality on the Pauli
+poset) that is not currently in `Mathlib`.
+
+We therefore leave `Thm_1C_monotonicity` as a single documented `sorry`
+representing the one genuinely open combinatorial step of Phase 1.
+The derivation `CORE ⟹ PAIR-INEQ ⟹ monotonicity` is itself non-
+trivial cardinality arithmetic; we leave its formalisation to a
+follow-up file `Monotone.lean`.
 -/
 
-/-- **Theorem 1.C (Monotonicity).**
-See the section docstring for a discussion of the proof obstacle. -/
+/-- **Partial monotonicity (trivial case).**
+When the smaller weight lies at or below the fault-tolerance threshold,
+`P_L^{w₁} = 0` by Theorem 1.A, so the inequality is immediate. -/
+theorem Thm_1C_monotonicity_below_threshold {w₁ w₂ : ℕ}
+    (h_w₁ : w₁ ≤ 𝒞.threshold) (h : w₁ ≤ w₂) :
+    P_L 𝒞 D w₁ ≤ P_L 𝒞 D w₂ := by
+  rw [Thm_1A_fault_tolerance 𝒞 D h_w₁]
+  exact P_L_nonneg D w₂
+
+/-- **Theorem 1.C (Monotonicity), general form.**
+
+*Open in full generality.*  The proof is reduced in the section
+docstring to the integer pair-inequality `|R_FS| ≤ |R_SF|`,
+which is believed true but whose proof requires combinatorial
+machinery (lattice inequalities on the Pauli poset) not yet
+available in `Mathlib`.  See the section docstring for a detailed
+account of the reformulation and the failed proof attempts. -/
 theorem Thm_1C_monotonicity {w₁ w₂ : ℕ} (h : w₁ ≤ w₂) :
     P_L 𝒞 D w₁ ≤ P_L 𝒞 D w₂ := by
+  -- If `w₁ ≤ t`, use the trivial case.
+  by_cases h_below : w₁ ≤ 𝒞.threshold
+  · exact Thm_1C_monotonicity_below_threshold 𝒞 D h_below h
+  -- Otherwise `w₁ > t` and the general case requires the pair inequality;
+  -- see section docstring.
+  push_neg at h_below
   sorry
 
 /-! ## Theorem 1.D: Saturation -/
