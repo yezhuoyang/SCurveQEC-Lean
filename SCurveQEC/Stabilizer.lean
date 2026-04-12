@@ -68,17 +68,67 @@ noncomputable def threshold : ℕ := (𝒞.distance - 1) / 2
 /-- For brevity. -/
 noncomputable def t : ℕ := 𝒞.threshold
 
-/-- Basic: distance is at least 1 (there is a non-stabilizer logical with
-non-zero weight; if it has weight 0 it would be `1`, which is a stabilizer). -/
-theorem distance_pos : 0 < 𝒞.distance := by
-  sorry
+/-- Any Pauli in `logicalErrors` has weight at least the distance.
+This is essentially the definition of `distance` as an infimum. -/
+theorem distance_le_weight_of_logicalError {E : Pauli n} (h : E ∈ 𝒞.logicalErrors) :
+    𝒞.distance ≤ Pauli.weight E := by
+  unfold distance
+  have hmem : Pauli.weight E ∈ (Pauli.weight '' 𝒞.logicalErrors) :=
+    Set.mem_image_of_mem _ h
+  exact Nat.sInf_le hmem
 
-/-- The fundamental decoding property: if `wt E ≤ t`, then `E` lies in the
-stabilizer coset (i.e. `E` is either a stabilizer or within distance
-`t` of one). This is what makes the code able to correct. -/
-theorem corrects_up_to_threshold {E : Pauli n} (h : Pauli.weight E ≤ 𝒞.threshold) :
-    E ∈ 𝒞.stabilizers ∨ E ∉ 𝒞.logicals := by
-  sorry
+/-- A Pauli with weight 0 is the identity. -/
+theorem eq_one_of_weight_zero {P : Pauli n} (h : Pauli.weight P = 0) : P = 1 := by
+  funext i
+  unfold Pauli.weight at h
+  have hsupp : Pauli.support P = ∅ := Finset.card_eq_zero.mp h
+  unfold Pauli.support at hsupp
+  have hi : i ∉ (Finset.univ.filter fun i => P i ≠ SinglePauli.I) := by
+    rw [hsupp]; simp
+  simp [Finset.mem_filter] at hi
+  simp [hi]
+
+/-- Basic: distance is at least 1. If distance were 0, the infimum would be
+attained by some logical error of weight 0 (which must be `1`), but `1` is
+a stabilizer — contradiction. -/
+theorem distance_pos : 0 < 𝒞.distance := by
+  unfold distance
+  obtain ⟨P, hP_log, hP_nstab⟩ := 𝒞.exists_nontrivial_logical
+  have hP_err : P ∈ 𝒞.logicalErrors := ⟨hP_log, hP_nstab⟩
+  have hne : (Pauli.weight '' 𝒞.logicalErrors).Nonempty :=
+    ⟨Pauli.weight P, Set.mem_image_of_mem _ hP_err⟩
+  -- sInf of a nonempty subset of ℕ is in the set.
+  have hmem := Nat.sInf_mem hne
+  obtain ⟨Q, hQ_err, hQ_wt⟩ := hmem
+  -- Suppose sInf = 0 for contradiction: then weight Q = 0, so Q = 1 ∈ stabilizers.
+  rw [← hQ_wt]
+  by_contra hzero
+  push_neg at hzero
+  have hwq : Pauli.weight Q = 0 := Nat.le_zero.mp hzero
+  have hQ1 : Q = 1 := eq_one_of_weight_zero hwq
+  rw [hQ1] at hQ_err
+  exact hQ_err.2 𝒞.one_mem_stab
+
+/-- The threshold is strictly less than the distance: `2t + 1 ≤ d`. -/
+theorem two_threshold_lt_distance : 2 * 𝒞.threshold < 𝒞.distance := by
+  unfold threshold
+  have h := 𝒞.distance_pos
+  omega
+
+/-- The key fault-tolerance lemma: if a Pauli has weight ≤ 2 * threshold,
+and it is in `stabilizers ∪ logicals`, then it is in `stabilizers`. -/
+theorem stab_of_small_weight_logical {P : Pauli n}
+    (h_log_or_stab : P ∈ 𝒞.stabilizers ∪ 𝒞.logicals)
+    (h_wt : Pauli.weight P ≤ 2 * 𝒞.threshold) :
+    P ∈ 𝒞.stabilizers := by
+  rcases h_log_or_stab with hs | hl
+  · exact hs
+  · by_contra hns
+    have h_err : P ∈ 𝒞.logicalErrors := ⟨hl, hns⟩
+    have h_d_le : 𝒞.distance ≤ Pauli.weight P :=
+      distance_le_weight_of_logicalError 𝒞 h_err
+    have h_2t_lt : 2 * 𝒞.threshold < 𝒞.distance := 𝒞.two_threshold_lt_distance
+    omega
 
 end StabilizerCode
 

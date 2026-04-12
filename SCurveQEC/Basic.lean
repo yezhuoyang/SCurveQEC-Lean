@@ -33,33 +33,29 @@ variable {n : ℕ} (𝒞 : StabilizerCode n) (D : PerfectMWPM 𝒞)
 
 /-- If the error has weight ≤ t, then `D` corrects it perfectly.
 
-The argument: by `corrects_up_to_threshold`, a weight-`≤ t` Pauli `E` is
-either a stabilizer or is *not* in the centralizer — i.e.\ it produces a
-non-trivial syndrome. In either case:
-
-* if `E` is itself a stabilizer, the decoder's minimum-weight coset
-  representative is at most `weight E`, and in particular the correction
-  is in the stabilizer;
-* if `E` has nontrivial syndrome, the perfect MWPM decoder finds the
-  weight-minimizing correction in `E`'s coset, which is `E` itself (up
-  to stabilizers), so the correction result is a stabilizer.
-
-In both cases, `correctionResult D E ∈ 𝒞.stabilizers`, i.e.\ the decoder
-succeeds. -/
+**Proof.** Let `F := D.apply E`. By the min-weight axiom, applied with
+`F := E` (so `E * E⁻¹ = 1 ∈ stabilizers`),
+`weight (D.apply E) ≤ weight E ≤ t`. Therefore
+`weight (D.apply E * E) ≤ weight (D.apply E) + weight E ≤ 2t`,
+by the triangle inequality on Pauli weights.
+By `same_coset`, `D.apply E * E ∈ stabilizers ∪ logicals`.
+By `stab_of_small_weight_logical` (valid since `2t < d`), this forces
+`D.apply E * E ∈ stabilizers`, which is precisely `succeeds`. -/
 theorem Thm_1A_local
     {E : Pauli n} (h : Pauli.weight E ≤ 𝒞.threshold) :
     PerfectMWPM.succeeds D E := by
-  /- Proof sketch:
-     By `corrects_up_to_threshold`, `E ∈ stabilizers` or `E ∉ logicals`.
-     Case 1: `E ∈ stabilizers`. The min-weight property of `D` gives
-       weight (D E) ≤ weight E ≤ t. Then `D E * E` has weight ≤ 2t < d,
-       so either is a stabilizer (succ) or is a logical of weight < d
-       (contradicting distance). So succ.
-     Case 2: `E ∉ logicals`. Then `D E * E ∈ stabilizers ∪ logicals`,
-       and the correction result must be on the stabilizer coset of `E`,
-       hence a stabilizer.
-  -/
-  sorry
+  have h_coset : D.apply E * E ∈ 𝒞.stabilizers ∪ 𝒞.logicals := D.same_coset E
+  -- D.apply E has weight ≤ weight E via the min_weight axiom at F = E.
+  have h_DE_le_E : Pauli.weight (D.apply E) ≤ Pauli.weight E := by
+    apply D.min_weight E E
+    simp [Pauli.mul_self, 𝒞.one_mem_stab]
+  have h_DE_le_t : Pauli.weight (D.apply E) ≤ 𝒞.threshold := le_trans h_DE_le_E h
+  have h_sum_le_2t : Pauli.weight (D.apply E * E) ≤ 2 * 𝒞.threshold := by
+    calc Pauli.weight (D.apply E * E)
+        ≤ Pauli.weight (D.apply E) + Pauli.weight E := Pauli.weight_mul_le _ _
+      _ ≤ 𝒞.threshold + 𝒞.threshold := Nat.add_le_add h_DE_le_t h
+      _ = 2 * 𝒞.threshold := by ring
+  exact StabilizerCode.stab_of_small_weight_logical 𝒞 h_coset h_sum_le_2t
 
 /-- **Theorem 1.A (Fault-tolerance):** `P_L^w = 0` for `w ≤ t`. -/
 theorem Thm_1A_fault_tolerance {w : ℕ} (h : w ≤ 𝒞.threshold) :

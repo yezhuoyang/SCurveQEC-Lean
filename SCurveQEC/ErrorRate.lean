@@ -65,9 +65,18 @@ theorem P_L_nonneg {𝒞 : StabilizerCode n} (D : PerfectMWPM 𝒞) (w : ℕ) :
 
 theorem P_L_le_one {𝒞 : StabilizerCode n} (D : PerfectMWPM 𝒞) (w : ℕ) :
     P_L 𝒞 D w ≤ 1 := by
+  classical
   unfold P_L
   split_ifs with h
   · norm_num
-  · sorry  -- divided cardinality ≤ 1
+  · -- logicalFailures is a subset of weightedErrors, so its card is ≤.
+    have hsub : logicalFailures D w ⊆ Pauli.weightedErrors n w := by
+      intro E hE
+      unfold logicalFailures at hE
+      exact (Finset.mem_filter.mp hE).1
+    have hcard : (logicalFailures D w).card ≤ (Pauli.weightedErrors n w).card :=
+      Finset.card_le_card hsub
+    rw [div_le_one (by exact_mod_cast Nat.pos_of_ne_zero h)]
+    exact_mod_cast hcard
 
 end SCurveQEC

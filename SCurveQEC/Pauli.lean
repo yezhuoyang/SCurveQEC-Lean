@@ -161,6 +161,31 @@ theorem mem_ofWeight {n w : ℕ} {P : Pauli n} :
     P ∈ ofWeight n w ↔ weight P = w := by
   simp [ofWeight]
 
+/-! ### Triangle inequality on weights -/
+
+/-- The support of a product is contained in the union of supports. -/
+theorem support_mul_subset (P Q : Pauli n) :
+    support (P * Q) ⊆ support P ∪ support Q := by
+  intro i hi
+  simp only [support, Finset.mem_filter, Finset.mem_univ, true_and,
+    Finset.mem_union, mul_apply] at hi ⊢
+  -- Contrapositive: if P i = I and Q i = I then (P*Q) i = I * I = I.
+  by_contra hne
+  push_neg at hne
+  obtain ⟨hP, hQ⟩ := hne
+  apply hi
+  rw [hP, hQ]
+  rfl
+
+/-- **Triangle inequality** for Pauli weights. -/
+theorem weight_mul_le (P Q : Pauli n) :
+    weight (P * Q) ≤ weight P + weight Q := by
+  unfold weight
+  calc (support (P * Q)).card
+      ≤ (support P ∪ support Q).card :=
+        Finset.card_le_card (support_mul_subset P Q)
+    _ ≤ (support P).card + (support Q).card := Finset.card_union_le _ _
+
 end Pauli
 
 end SCurveQEC
