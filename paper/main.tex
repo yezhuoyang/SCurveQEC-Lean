@@ -120,19 +120,140 @@ $$P_L^w(\mathcal{C}, D) :=
 \end{definition}
 
 \section{Phase I: Structural Properties}
+\label{sec:phase1}
 
-\begin{theorem}[Fault-tolerance below threshold; Lean: \texttt{Thm\_1A}]
+We establish four structural results on $P_L^w$.  Each statement is
+accompanied by a cross-reference to the Lean identifier in the
+companion library where the result is formalised.
+
+\subsection{Fault-Tolerance Below Threshold}
+
+\begin{theorem}[Fault-tolerance below threshold; Lean: \texttt{Thm\_1A\_fault\_tolerance}]
 \label{thm:1A}
 For any stabilizer code $\mathcal{C}$, perfect MWPM decoder $D$,
 and $w \leq t(\mathcal{C})$,
 $$P_L^w(\mathcal{C}, D) = 0.$$
 \end{theorem}
 
-% ... (proofs continue; placeholders for now)
+\begin{proof}
+It suffices to show that the decoder succeeds on every weight-$w$ Pauli
+with $w \leq t$.  Let $E$ be such an error, and let $F := D(E)$ be the
+decoder's output.
+
+\emph{Step~1: $\mathrm{wt}(F) \leq \mathrm{wt}(E)$.}
+The min-weight axiom of the decoder applied with $F' := E$ yields
+$\mathrm{wt}(D(E)) \leq \mathrm{wt}(E)$, since $E \cdot E^{-1} = 1 \in
+\mathcal{S}$.
+(Lean lemma: \texttt{PerfectMWPM.min\_weight} applied at $F' = E$.)
+
+\emph{Step~2: $\mathrm{wt}(F \cdot E) \leq 2t$.}
+By the triangle inequality for Pauli weight
+(Lean: \texttt{Pauli.weight\_mul\_le}),
+$\mathrm{wt}(F \cdot E) \leq \mathrm{wt}(F) + \mathrm{wt}(E)
+\leq 2 \mathrm{wt}(E) \leq 2t.$
+
+\emph{Step~3: $F \cdot E \in \mathcal{S} \cup \mathcal{L}$.}
+By the coset-consistency axiom
+(Lean: \texttt{PerfectMWPM.same\_coset}).
+
+\emph{Step~4: $F \cdot E \in \mathcal{S}$.}  Since
+$d(\mathcal{C}) \geq 2t + 1$ (which is immediate from
+$t = \lfloor (d-1)/2 \rfloor$), any element of $\mathcal{L}
+\setminus \mathcal{S}$ has weight at least $d > 2t$.  Combined with
+Step~2 and 3, this forces $F \cdot E \in \mathcal{S}$.
+(Lean: \texttt{stab\_of\_small\_weight\_logical}.)
+
+By definition this is the \emph{success} condition for the decoder,
+so no weight-$w$ error with $w \leq t$ produces a logical error.
+Averaging over the uniform distribution on weight-$w$ Paulis gives
+$P_L^w = 0$.
+\qed
+\end{proof}
+
+\subsection{Range}
+
+\begin{theorem}[Range; Lean: \texttt{Thm\_1B\_range}]
+\label{thm:1B}
+For any $\mathcal{C}, D$ and any $w$,
+$$0 \;\leq\; P_L^w(\mathcal{C}, D) \;\leq\; 1.$$
+\end{theorem}
+
+\begin{proof}
+$P_L^w$ is a ratio of Finset cardinalities.  Non-negativity is
+immediate (Lean: \texttt{P\_L\_nonneg}).  For the upper bound, the
+Finset of logical failures at weight $w$ is a subset of all weight-$w$
+Paulis, so the ratio $\leq 1$.  (Lean: \texttt{P\_L\_le\_one}.)
+\qed
+\end{proof}
+
+\subsection{Monotonicity in $w$}
+
+\begin{theorem}[Monotonicity; Lean: \texttt{Thm\_1C\_monotonicity}]
+\label{thm:1C}
+For any $w_1 \leq w_2$,
+$$P_L^{w_1}(\mathcal{C}, D) \;\leq\; P_L^{w_2}(\mathcal{C}, D).$$
+\end{theorem}
+
+\emph{Proof (sketch; formal proof in progress).}
+By induction on $w_2 - w_1$, reducing to the case $w_2 = w_1 + 1$.
+Given a weight-$w_1$ Pauli~$E$ causing logical failure, we construct a
+weight-$(w_1 + 1)$ Pauli $E'$ that also causes logical failure, by
+adjoining a fault at a location that does not reduce the syndrome's
+logical content.  Such a fault exists by a counting argument on the
+coset structure: if every single-fault extension succeeded, the
+post-extension image would collapse onto the stabilizer coset from
+all three Pauli choices, contradicting the fact that at least one Pauli
+rotates the logical state.
+
+The construction gives an injection from weight-$w_1$ failures into
+weight-$(w_1 + 1)$ failures, which yields the inequality on the ratios
+via a standard cardinality-ratio lemma.
+(Lean: \texttt{Thm\_1C\_exists\_extension\_failure}, currently
+\texttt{sorry}.)
+
+\subsection{Saturation}
+
+\begin{theorem}[Saturation; Lean: \texttt{Thm\_1D\_saturation\_single\_logical}]
+\label{thm:1D}
+For a single-logical-qubit code ($k = 1$) and in the limit $w \to n$,
+$$\lim_{w \to n} P_L^w(\mathcal{C}, D) \;=\; \frac{1}{2}.$$
+More generally for $k$ logical qubits, the limit is $(2^k - 1)/2^k$.
+\end{theorem}
+
+\emph{Proof (sketch; formal proof in progress).}
+As $w \to n$, the uniform measure on weight-$w$ Paulis tends to the
+uniform measure on the full Pauli group.  The decoder's output is
+a function of the syndrome, and the distribution of
+$D(E) \cdot E$ under the uniform measure on the Pauli group is uniform
+over the union $\mathcal{S} \cup \mathcal{L}$ modulo stabilizers.
+Hence $P_L^w$ tends to the fraction of non-stabilizer cosets in
+$\mathcal{L} / \mathcal{S}$, which is $(2^k - 1)/2^k$.
 
 \section{Phase II: Analytic Regularity (conditional)}
 
-[To be filled in milestone M2.]
+The original plan targeted three claims: strict monotonicity, discrete
+log-concavity of $1/2 - P_L^w$, and existence of a unique inflection.
+
+\paragraph{Status.}
+Empirical analysis on the fitted S-curve family reveals that
+$\log(1/2 - f_t[\theta](w))$ is \emph{concave} on the rising segment
+$w \in [t+1, w^\star]$ (where $w^\star$ is the sigmoid inflection)
+but becomes \emph{convex} on the saturation segment $w \in
+[w^\star, n]$.  The convex behaviour in the saturation regime is
+directly traceable to the term $\beta/\sqrt{w-t}$ in the S-curve
+which gives a positive second derivative to the log.
+
+\paragraph{Implication.}
+The log-concavity claim in its original universal form is
+\emph{false}.  The plan's Phase~II requires either:
+\begin{enumerate}
+\item weakening to a \emph{sectional} log-concavity statement
+    restricted to $w \in [t+1, w^\star]$, or
+\item replacing log-concavity with a different regularity
+    property (e.g.\ unique sign change of $\Delta^2 P_L^w$).
+\end{enumerate}
+This reformulation is pending explicit approval before Phase~II
+is reopened; see the companion repository issue tracker.
 
 \section{Phase III: S-Curve Approximation Theorem}
 
