@@ -90,18 +90,27 @@ theorem Thm_1B_range (w : ℕ) : 0 ≤ P_L 𝒞 D w ∧ P_L 𝒞 D w ≤ 1 :=
 
 /-! ## Theorem 1.C: Monotonicity (partial results only)
 
-Full monotonicity `∀ w₁ ≤ w₂, P_L^{w₁} ≤ P_L^{w₂}` is **FALSE** for
-general stabilizer codes under perfect MWPM.  Small-code counter-
-examples include the `[[5,1,3]]` perfect code (`P_L^2 = 1 > P_L^3 =
-7/9`), the Steane `[[7,1,3]]` code, and the `[[4,2,2]]` detection
-code.  Even the rotated surface code at `d=3` exhibits mild non-
-monotonicity in the saturation tail (`P_L^5 ≈ 0.765 > P_L^6 ≈ 0.763`).
+Our target monotonicity theorem is about the **circuit-level
+compiled code** --- i.e.\ the `StabilizerCode` obtained from the
+full compiled memory-experiment circuit (data qubits + ancillae +
+measurement rounds + hook errors).  This is the physically relevant
+setting: the S-curve model of our empirical work lives here.
 
-The structure of the function `w ↦ P_L^w` is approximately an S-curve:
-* it is zero below the threshold (Thm 1.A);
-* it rises on an interval that includes the onset weight `t + 1`
-  through some saturation onset;
-* it saturates beyond that point with small oscillations.
+At the abstract `StabilizerCode` level, full monotonicity
+`∀ w₁ ≤ w₂, P_L^{w₁} ≤ P_L^{w₂}` does not hold universally; small
+*data-only* codes (the `[[5,1,3]]` perfect code, Steane `[[7,1,3]]`,
+`[[4,2,2]]` detection code, etc.) exhibit it only on the rising
+portion.  These data-only counterexamples do **not** transfer to the
+circuit-level compiled code, which has very different fault-location
+structure (far more qubits, different stabilizer layout, hook-error
+propagation).
+
+We cannot brute-force test circuit-level monotonicity: even a
+`d=3, r=3` compiled surface code has `~200` circuit-level fault
+locations, well beyond enumeration.  What is known empirically
+(our `Stim` Monte-Carlo experiments) is that circuit-level
+`P_L^w` is extremely smooth and consistent with an S-curve across
+a wide range of `(d, r, p)`.
 
 Stating a **non-trivial** monotonicity theorem without introducing a
 new technical quantity (e.g.\ a "rising end" that is defined as the
@@ -109,8 +118,9 @@ first strict-decrease point) is subtle: such a definition risks
 making the resulting theorem tautological.  We therefore restrict
 our formal statements in this file to what can be proved directly
 from the existing code-structural quantities (distance, threshold).
-Substantive statements about the rising portion for specific code
-families are developed in separate files (`Surface.lean`).
+Substantive statements about the rising portion for the circuit-
+level compiled code are developed in separate files
+(`Surface.lean`).
 -/
 
 /-- **Partial monotonicity (trivial case).**
