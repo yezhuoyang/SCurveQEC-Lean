@@ -88,7 +88,7 @@ theorem Thm_1A_fault_tolerance {w : ℕ} (h : w ≤ 𝒞.threshold) :
 theorem Thm_1B_range (w : ℕ) : 0 ≤ P_L 𝒞 D w ∧ P_L 𝒞 D w ≤ 1 :=
   ⟨P_L_nonneg D w, P_L_le_one D w⟩
 
-/-! ## Theorem 1.C: Rising Monotonicity
+/-! ## Theorem 1.C: Monotonicity (partial results only)
 
 Full monotonicity `∀ w₁ ≤ w₂, P_L^{w₁} ≤ P_L^{w₂}` is **FALSE** for
 general stabilizer codes under perfect MWPM.  Small-code counter-
@@ -99,27 +99,18 @@ monotonicity in the saturation tail (`P_L^5 ≈ 0.765 > P_L^6 ≈ 0.763`).
 
 The structure of the function `w ↦ P_L^w` is approximately an S-curve:
 * it is zero below the threshold (Thm 1.A);
-* it rises on some interval `[t+1, w⋆]` ("rising portion");
-* it saturates to a value close to `(2^{2k} - 1) / 2^{2k}` beyond `w⋆`
-  (with small oscillations in the saturation tail).
+* it rises on an interval that includes the onset weight `t + 1`
+  through some saturation onset;
+* it saturates beyond that point with small oscillations.
 
-The correct **monotonicity theorem** is a statement about the rising
-portion only.  We formalise this as `Thm_1C_rising_monotonicity`.
-
-### Rising portion definition
-
-Define `risingEnd 𝒞 D` to be the smallest weight `w` such that
-`P_L^{w+1} < P_L^w` (the first local maximum of `P_L`), or `n` if no
-such weight exists.  This is well-defined, trivially monotone-up-to
-`risingEnd`, and admits a useful non-trivial lower bound on specific
-code families (cf.\ `Surface.lean`).
-
-### Pair inequality restricted
-
-In the same way as before, `Rising Monotonicity` is equivalent to the
-pair inequality `|R_FS^w| ≤ |R_SF^w|` restricted to `w < risingEnd`.
-The core open combinatorial step is shifted to the *restricted* pair
-inequality; but the statement itself is now mathematically correct.
+Stating a **non-trivial** monotonicity theorem without introducing a
+new technical quantity (e.g.\ a "rising end" that is defined as the
+first strict-decrease point) is subtle: such a definition risks
+making the resulting theorem tautological.  We therefore restrict
+our formal statements in this file to what can be proved directly
+from the existing code-structural quantities (distance, threshold).
+Substantive statements about the rising portion for specific code
+families are developed in separate files (`Surface.lean`).
 -/
 
 /-- **Partial monotonicity (trivial case).**
@@ -131,56 +122,12 @@ theorem Thm_1C_monotonicity_below_threshold {w₁ w₂ : ℕ}
   rw [Thm_1A_fault_tolerance 𝒞 D h_w₁]
   exact P_L_nonneg D w₂
 
-/-- **The rising end of `P_L^w`.**
-
-Abstractly: the smallest weight `w` such that `P_L^{w+1} < P_L^w`, or
-`n + 1` (past the end) if no such weight exists.  Monotonicity holds
-on `[0, risingEnd]` essentially by definition.
-
-Non-trivially, for well-structured codes (e.g.\ surface codes at
-sufficient distance), `risingEnd` is close to the S-curve inflection
-point `μ ≈ C · p_th`. -/
-noncomputable def risingEnd (𝒞 : StabilizerCode n) (D : PerfectMWPM 𝒞) : ℕ :=
-  sInf {w : ℕ | P_L 𝒞 D (w + 1) < P_L 𝒞 D w}
-
-/-- **Theorem 1.C (Rising Monotonicity).**
-
-`P_L^w` is non-decreasing on `[0, risingEnd]`.
-
-*This is the mathematically correct version of monotonicity.*  The
-fully general statement (`∀ w₁ ≤ w₂, P_L^{w₁} ≤ P_L^{w₂}`) is known
-to be FALSE for specific codes (e.g.\ `[[5,1,3]]` perfect code).
-Restricting to the rising portion gives a valid theorem.
-
-This theorem is *trivially true by definition* once `risingEnd` is
-defined as the first strict-decrease point; the real content is in
-lower bounds on `risingEnd` for specific code families, which are
-proved elsewhere (e.g.\ `Surface.lean`). -/
-theorem Thm_1C_rising_monotonicity
-    {w₁ w₂ : ℕ} (h : w₁ ≤ w₂) (h_bd : w₂ ≤ risingEnd 𝒞 D) :
-    P_L 𝒞 D w₁ ≤ P_L 𝒞 D w₂ := by
-  -- By induction on `w₂ - w₁`.
-  induction h with
-  | refl => rfl
-  | @step w ih_le ih =>
-    -- We have `w₁ ≤ w` and must show `P_L w₁ ≤ P_L (w + 1)`.
-    -- Apply `ih` with the weaker bound `w ≤ risingEnd` (since
-    -- `w + 1 ≤ risingEnd` implies `w ≤ risingEnd`).
-    have h_bd' : w ≤ risingEnd 𝒞 D := le_trans (Nat.le_succ w) h_bd
-    have ih' : P_L 𝒞 D w₁ ≤ P_L 𝒞 D w := ih h_bd'
-    -- Now show `P_L w ≤ P_L (w + 1)`.
-    -- Since `w < risingEnd` (as `w + 1 ≤ risingEnd`), `w` is not in the
-    -- set `{w : P_L(w+1) < P_L w}`, hence `¬ P_L(w+1) < P_L w`, i.e.
-    -- `P_L w ≤ P_L (w + 1)`.
-    have h_lt : w < risingEnd 𝒞 D := h_bd
-    have h_not_mem : w ∉ {w : ℕ | P_L 𝒞 D (w + 1) < P_L 𝒞 D w} := by
-      intro h_mem
-      exact absurd (Nat.sInf_le h_mem) (not_le.mpr h_lt)
-    have h_step : P_L 𝒞 D w ≤ P_L 𝒞 D (w + 1) := by
-      by_contra h_not
-      push_neg at h_not
-      exact h_not_mem h_not
-    exact le_trans ih' h_step
+-- The `risingEnd` definition and the `Thm_1C_rising_monotonicity`
+-- theorem were removed: defining `risingEnd` as the first strict-
+-- decrease point makes the theorem tautological (it does not rely on
+-- any structural property of the code or decoder).  Substantive
+-- monotonicity results for specific code families will be stated
+-- and proved in code-specific files (e.g.\ `Surface.lean`).
 
 /-! ## Theorem 1.D: Saturation -/
 
