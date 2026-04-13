@@ -12,7 +12,7 @@
 \theoremstyle{remark}
 \newtheorem{remark}[theorem]{Remark}
 
-\title{A First-Principles Derivation of the S-Curve Model \\
+\title{Towards a First-Principles Derivation of the S-Curve Model \\
        for Quantum Error-Correction Logical Error Rates}
 \author{Formalised in Lean 4 + mathlib4}
 
@@ -20,153 +20,169 @@
 \maketitle
 
 \begin{abstract}
-We give a formal mathematical derivation of structural and (conjecturally)
-analytic properties of the weight-conditional logical error rate
-$P_L^w$ for a stabilizer QEC code under perfect minimum-weight decoding.
-Everything is proven from first principles, starting with the definition
-of code distance, and formalised in Lean 4 with mathlib4. We work in three
-phases: (I) structural identities ($P_L^w = 0$ below threshold,
-monotonicity, saturation); (II) analytic regularity (strict monotonicity,
-discrete log-concavity, existence of an inflection weight);
-and (III) a universal-approximation theorem for the S-curve ansatz
-$f_t[\mu,\alpha,\beta](w)$. Phase I is proven unconditionally;
-Phases II and III are reported under explicit, empirically-validated
-hypotheses. The Lean sources accompanying this paper compile to a self-
-contained formal library.
+We investigate whether the empirical three-parameter ``S-curve''
+fit of the weight-conditional logical error rate $P_L^w$ for
+stabilizer QEC codes under perfect minimum-weight decoding can be
+derived from first principles.  In a Lean~4 formalisation built on
+mathlib, we set up a minimal abstract framework (stabilizer codes,
+perfect MWPM decoders, $P_L^w$ as a rational) and prove four
+structural properties unconditionally: $P_L^w = 0$ below threshold,
+$P_L^w \in [0, 1]$, vanishing on empty failure sets, and the trivial
+monotonicity below the fault-tolerance threshold.  We then
+\emph{reduce} the general monotonicity question to a purely integer
+combinatorial inequality (the pair-cardinality inequality), and
+prove the reduction formally.  Full monotonicity for an abstract
+stabilizer code is known to be false (small-code counterexamples in
+the data-only setting); our target setting is the circuit-level
+compiled surface code, where the pair-cardinality inequality is
+expected to hold by empirical evidence but remains a research-level
+open problem.  The Lean library is small, self-contained, and
+compiles with a single documented \texttt{sorry} on the open
+combinatorial step.
 \end{abstract}
 
 \section{Introduction}
 
 The weight-conditional logical error rate $P_L^w$ --- the probability
-that a uniformly random weight-$w$ Pauli error causes a stabilizer
-code to fail under decoding --- appears empirically to follow a
-three-parameter S-shaped curve in $w$. Prior work~\cite{ScaLER} fits
-this S-curve ansatz to data and uses it for logical-error-rate
-extrapolation. Here we ask: \emph{can the S-curve form be derived
-rigorously, from first principles?}
+that a uniformly random weight-$w$ fault configuration causes the
+decoder to output a logical error --- appears empirically to follow
+a three-parameter S-shaped curve in $w$ \cite{ScaLER}.  Prior work
+fits this S-curve ansatz to Monte-Carlo data and uses it for
+logical-error-rate extrapolation.  Here we ask: \emph{can the
+S-curve form be derived rigorously?}
+
+This paper reports the current state of that derivation.  The
+answer so far is \emph{partial}: the structural preliminaries are
+cleanly formalisable, the monotonicity question reduces cleanly to
+a single integer inequality, and the remaining combinatorial step
+is concrete but research-level.
 
 \paragraph{Contributions.}
 \begin{enumerate}
-\item A minimal abstract formalism (Lean~4) for stabilizer codes,
-perfect MWPM decoders, and the weight-conditional LER $P_L^w$, based
-only on code distance.
-\item \textbf{Phase~I:} unconditional formal proofs of
+\item A minimal abstract formalism (Lean~4 + mathlib) for
+stabilizer codes, perfect MWPM decoders, and the weight-conditional
+LER $P_L^w$, based only on the definition of code distance.
+\item Unconditional formal proofs of:
 \begin{itemize}
-\item $P_L^w = 0$ for $w \leq t$ (fault-tolerance);
+\item $P_L^w = 0$ for $w \leq t$ (fault-tolerance below threshold);
 \item $0 \leq P_L^w \leq 1$ (range);
-\item $P_L^w$ monotone non-decreasing in $w$;
-\item $\lim_{w \to n} P_L^w = (2^k - 1)/2^k$ (saturation).
+\item monotonicity below threshold;
+\item a clean saturation lemma ($P_L^w = 0$ when the failure set
+    is empty).
 \end{itemize}
-\item \textbf{Phase~II:} conditional proofs of strict monotonicity,
-discrete log-concavity, and existence of a unique inflection weight
-(under an FKG-type hypothesis on the Pauli-error lattice).
-\item \textbf{Phase~III:} a universal approximation theorem: the
-three-parameter S-curve family approximates any function in an
-explicit regularity class $\mathcal{F}_t$ to within a bounded error.
+\item A formal \emph{reduction} of the step-monotonicity claim
+$P_L^{w} \leq P_L^{w+1}$ to the integer inequality
+$$|\mathrm{fail}(w)| \cdot |\mathrm{wt}(w+1)|
+\;\leq\; |\mathrm{fail}(w+1)| \cdot |\mathrm{wt}(w)|.$$
+\item An honest report on the open questions: general monotonicity
+fails in the abstract stabilizer-code setting (with small-code
+counterexamples discovered by brute-force search), and the full
+S-curve approximation theorem is left for future work.
 \end{enumerate}
 
 \paragraph{Companion Lean library.}
-All of the claims above are stated and (for Phase~I) proven in the
-Lean~4 library available at
+All proofs are formalised in the Lean~4 library available at
 \url{https://github.com/yezhuoyang/SCurveQEC-Lean}.
-Each numbered theorem in this paper corresponds to a named theorem in
-that library; we cross-reference the Lean identifier in each
-statement.
+Each named theorem in this paper cross-references the
+corresponding Lean identifier.  The library contains one
+documented \texttt{sorry}, isolated to the code-specific
+combinatorial step described in
+Section~\ref{sec:monotonicity-open}.
 
 \section{Preliminaries}
 
+We work at the level of an abstract stabilizer code and a
+fault-tolerant decoder; no concrete code family (surface, toric,
+\ldots) is formalised at this stage.
+
 \begin{definition}[Pauli operator]
 For $n \in \mathbb{N}$, an $n$-qubit Pauli is a function
-$P: \{1, \ldots, n\} \to \{I, X, Y, Z\}$. We write $\mathrm{wt}(P)$
-for the number of indices where $P(i) \neq I$, and multiplication is
-pointwise (up to global phase).
+$P: \{0, \ldots, n-1\} \to \{I, X, Y, Z\}$.  We write
+$\mathrm{wt}(P)$ for the number of indices where $P(i) \neq I$,
+and multiplication is pointwise (modulo global phase, which we
+suppress throughout since logical error rates are phase-
+independent).
 
-\emph{Lean:} \texttt{SCurveQEC.Pauli}, \texttt{Pauli.weight}.
+\emph{Lean:} \texttt{SCurveQEC.SinglePauli},
+\texttt{SCurveQEC.Pauli}, \texttt{Pauli.weight}.
 \end{definition}
 
 \begin{definition}[Stabilizer code]
-A stabilizer code on $n$ qubits is a triple
-$\mathcal{C} = (n, \mathcal{S}, \mathcal{L})$ where
-$\mathcal{S} \subseteq \mathcal{P}_n$ is an abelian subgroup of the
-Pauli group and $\mathcal{L}$ is the centralizer of $\mathcal{S}$.
-Elements of $\mathcal{L} \setminus \mathcal{S}$ are the
-\emph{logical error operators}. The \emph{distance} is
-$d(\mathcal{C}) = \min_{L \in \mathcal{L} \setminus \mathcal{S}}
-\mathrm{wt}(L)$ and the \emph{threshold} is
-$t = \lfloor (d-1)/2 \rfloor$.
+A stabilizer code on $n$ qubits is a 4-tuple
+$\mathcal{C} = (n, \mathcal{S}, \mathcal{L}, \mathrm{axioms})$
+where $\mathcal{S} \subseteq \mathcal{P}_n$ is a set of Paulis
+containing the identity and $\mathcal{L}$ is a superset of
+$\mathcal{S}$ that contains the identity and at least one non-
+stabilizer element.  Elements of $\mathcal{L} \setminus \mathcal{S}$
+are the \emph{logical-error operators}.  The \emph{distance} of
+$\mathcal{C}$ is
+$$d(\mathcal{C}) := \inf\{\,\mathrm{wt}(L) : L \in \mathcal{L}
+\setminus \mathcal{S}\,\},$$
+and the \emph{fault-tolerance threshold} is
+$t(\mathcal{C}) := \lfloor (d-1)/2 \rfloor$.
 
-\emph{Lean:} \texttt{StabilizerCode}, \texttt{.distance},
-\texttt{.threshold}.
+\emph{Lean:} \texttt{StabilizerCode} (structure),
+\texttt{.distance}, \texttt{.threshold}.
 \end{definition}
 
 \begin{definition}[Perfect MWPM decoder]
-A perfect minimum-weight decoder $D$ for $\mathcal{C}$ is a function
-$D : \mathcal{P}_n \to \mathcal{P}_n$ such that $D(E) \cdot E \in
-\mathcal{S} \cup \mathcal{L}$ (coset consistency) and for every
-Pauli $F$ with the same syndrome as $E$ (i.e.\ $F \cdot E^{-1}
-\in \mathcal{S}$), we have $\mathrm{wt}(D(E)) \leq \mathrm{wt}(F)$
-(minimum weight).
+A perfect minimum-weight decoder $D$ for $\mathcal{C}$ is a
+function $D : \mathcal{P}_n \to \mathcal{P}_n$ satisfying:
+\begin{itemize}
+\item $D(E) \cdot E \in \mathcal{S} \cup \mathcal{L}$ (coset
+consistency);
+\item $\mathrm{wt}(D(E)) \leq \mathrm{wt}(F)$ for every $F$ with
+$F \cdot E^{-1} \in \mathcal{S}$ (minimum weight);
+\item $D(E_1) = D(E_2)$ whenever $E_1 \cdot E_2^{-1} \in
+\mathcal{S}$ (syndrome determinism).
+\end{itemize}
 
-\emph{Lean:} \texttt{PerfectMWPM}.
+\emph{Lean:} \texttt{PerfectMWPM} (structure, three axioms).
 \end{definition}
 
 \begin{definition}[Weight-conditional logical error rate]
 For $w \in \{0, 1, \ldots, n\}$,
-$$P_L^w(\mathcal{C}, D) :=
-\Pr_{E \sim \mathrm{Unif}\{\mathrm{wt}(E) = w\}}
-\bigl[D(E) \cdot E \in \mathcal{L} \setminus \mathcal{S}\bigr].$$
+$$P_L^w(\mathcal{C}, D)
+:= \frac{|\{E : \mathrm{wt}(E) = w \text{ and }
+D(E) \cdot E \in \mathcal{L} \setminus \mathcal{S}\}|}
+{|\{E : \mathrm{wt}(E) = w\}|},$$
+with the convention $P_L^w = 0$ if the denominator is zero.
 
-\emph{Lean:} \texttt{P\_L}.
+\emph{Lean:} \texttt{logicalFailures}, \texttt{P\_L};
+basic inequalities proved as \texttt{P\_L\_nonneg},
+\texttt{P\_L\_le\_one}.
 \end{definition}
 
-\section{Phase I: Structural Properties}
+\section{Structural Properties of $P_L^w$}
 \label{sec:phase1}
 
-We establish four structural results on $P_L^w$.  Each statement is
-accompanied by a cross-reference to the Lean identifier in the
-companion library where the result is formalised.
+We establish four structural results on $P_L^w$.  Each is proved
+unconditionally in Lean.
 
 \subsection{Fault-Tolerance Below Threshold}
 
 \begin{theorem}[Fault-tolerance below threshold; Lean: \texttt{Thm\_1A\_fault\_tolerance}]
 \label{thm:1A}
-For any stabilizer code $\mathcal{C}$, perfect MWPM decoder $D$,
-and $w \leq t(\mathcal{C})$,
-$$P_L^w(\mathcal{C}, D) = 0.$$
+For any stabilizer code $\mathcal{C}$ and perfect MWPM decoder $D$,
+if $w \leq t(\mathcal{C})$ then $P_L^w(\mathcal{C}, D) = 0$.
 \end{theorem}
 
 \begin{proof}
-It suffices to show that the decoder succeeds on every weight-$w$ Pauli
-with $w \leq t$.  Let $E$ be such an error, and let $F := D(E)$ be the
-decoder's output.
-
-\emph{Step~1: $\mathrm{wt}(F) \leq \mathrm{wt}(E)$.}
-The min-weight axiom of the decoder applied with $F' := E$ yields
-$\mathrm{wt}(D(E)) \leq \mathrm{wt}(E)$, since $E \cdot E^{-1} = 1 \in
-\mathcal{S}$.
-(Lean lemma: \texttt{PerfectMWPM.min\_weight} applied at $F' = E$.)
-
-\emph{Step~2: $\mathrm{wt}(F \cdot E) \leq 2t$.}
-By the triangle inequality for Pauli weight
-(Lean: \texttt{Pauli.weight\_mul\_le}),
-$\mathrm{wt}(F \cdot E) \leq \mathrm{wt}(F) + \mathrm{wt}(E)
-\leq 2 \mathrm{wt}(E) \leq 2t.$
-
-\emph{Step~3: $F \cdot E \in \mathcal{S} \cup \mathcal{L}$.}
-By the coset-consistency axiom
-(Lean: \texttt{PerfectMWPM.same\_coset}).
-
-\emph{Step~4: $F \cdot E \in \mathcal{S}$.}  Since
-$d(\mathcal{C}) \geq 2t + 1$ (which is immediate from
-$t = \lfloor (d-1)/2 \rfloor$), any element of $\mathcal{L}
-\setminus \mathcal{S}$ has weight at least $d > 2t$.  Combined with
-Step~2 and 3, this forces $F \cdot E \in \mathcal{S}$.
-(Lean: \texttt{stab\_of\_small\_weight\_logical}.)
-
-By definition this is the \emph{success} condition for the decoder,
-so no weight-$w$ error with $w \leq t$ produces a logical error.
-Averaging over the uniform distribution on weight-$w$ Paulis gives
-$P_L^w = 0$.
+It suffices to show that the decoder succeeds on every
+weight-$w$ Pauli with $w \leq t$.  Let $E$ be such an error and
+set $F := D(E)$.
+\emph{Step~1.} $\mathrm{wt}(F) \leq \mathrm{wt}(E)$, by the
+min-weight axiom applied with $F' := E$ (noting that
+$E \cdot E^{-1} = 1 \in \mathcal{S}$).
+\emph{Step~2.} $\mathrm{wt}(F \cdot E) \leq 2 \mathrm{wt}(E) \leq
+2t$, by the triangle inequality for Pauli weight
+(Lean: \texttt{Pauli.weight\_mul\_le}).
+\emph{Step~3.} $F \cdot E \in \mathcal{S} \cup \mathcal{L}$, by
+the coset-consistency axiom.
+\emph{Step~4.} Since $d \geq 2t + 1$, every non-stabilizer
+logical has weight at least $d > 2t$; Steps~2 and~3 then force
+$F \cdot E \in \mathcal{S}$
+(Lean: \texttt{stab\_of\_small\_weight\_logical}).
 \qed
 \end{proof}
 
@@ -175,94 +191,200 @@ $P_L^w = 0$.
 \begin{theorem}[Range; Lean: \texttt{Thm\_1B\_range}]
 \label{thm:1B}
 For any $\mathcal{C}, D$ and any $w$,
-$$0 \;\leq\; P_L^w(\mathcal{C}, D) \;\leq\; 1.$$
+$0 \leq P_L^w(\mathcal{C}, D) \leq 1$.
 \end{theorem}
 
 \begin{proof}
 $P_L^w$ is a ratio of Finset cardinalities.  Non-negativity is
-immediate (Lean: \texttt{P\_L\_nonneg}).  For the upper bound, the
-Finset of logical failures at weight $w$ is a subset of all weight-$w$
-Paulis, so the ratio $\leq 1$.  (Lean: \texttt{P\_L\_le\_one}.)
+immediate.  The upper bound follows because the Finset of
+weight-$w$ logical failures is a subset of all weight-$w$ Paulis.
+(Lean: \texttt{P\_L\_nonneg}, \texttt{P\_L\_le\_one}.)
 \qed
 \end{proof}
 
-\subsection{Monotonicity in $w$}
+\subsection{Monotonicity Below Threshold}
 
-\begin{theorem}[Monotonicity; Lean: \texttt{Thm\_1C\_monotonicity}]
-\label{thm:1C}
-For any $w_1 \leq w_2$,
-$$P_L^{w_1}(\mathcal{C}, D) \;\leq\; P_L^{w_2}(\mathcal{C}, D).$$
+\begin{theorem}[Trivial monotonicity below threshold; Lean: \texttt{Thm\_1C\_monotonicity\_below\_threshold}]
+\label{thm:1C-triv}
+If $w_1 \leq t$ and $w_1 \leq w_2$, then $P_L^{w_1} \leq P_L^{w_2}$.
 \end{theorem}
 
-\emph{Proof (sketch; formal proof in progress).}
-By induction on $w_2 - w_1$, reducing to the case $w_2 = w_1 + 1$.
-Given a weight-$w_1$ Pauli~$E$ causing logical failure, we construct a
-weight-$(w_1 + 1)$ Pauli $E'$ that also causes logical failure, by
-adjoining a fault at a location that does not reduce the syndrome's
-logical content.  Such a fault exists by a counting argument on the
-coset structure: if every single-fault extension succeeded, the
-post-extension image would collapse onto the stabilizer coset from
-all three Pauli choices, contradicting the fact that at least one Pauli
-rotates the logical state.
+\begin{proof}
+By Theorem~\ref{thm:1A}, $P_L^{w_1} = 0$, and by Theorem~\ref{thm:1B}
+$P_L^{w_2} \geq 0$.
+\qed
+\end{proof}
 
-The construction gives an injection from weight-$w_1$ failures into
-weight-$(w_1 + 1)$ failures, which yields the inequality on the ratios
-via a standard cardinality-ratio lemma.
-(Lean: \texttt{Thm\_1C\_exists\_extension\_failure}, currently
-\texttt{sorry}.)
+\subsection{Zero-on-Empty and Range Summary}
 
-\subsection{Saturation}
-
-\begin{theorem}[Saturation; Lean: \texttt{Thm\_1D\_saturation\_single\_logical}]
+\begin{theorem}[Zero when failure set is empty; Lean: \texttt{Thm\_1D\_zero\_when\_no\_failures}]
 \label{thm:1D}
-For a single-logical-qubit code ($k = 1$) and in the limit $w \to n$,
-$$\lim_{w \to n} P_L^w(\mathcal{C}, D) \;=\; \frac{1}{2}.$$
-More generally for $k$ logical qubits, the limit is $(2^k - 1)/2^k$.
+If at weight $w$ there are no logical failures, then
+$P_L^w(\mathcal{C}, D) = 0$.
 \end{theorem}
+\begin{proof}
+Immediate from the definition: the numerator's Finset is empty, so
+its cardinality is zero.
+\qed
+\end{proof}
 
-\emph{Proof (sketch; formal proof in progress).}
-As $w \to n$, the uniform measure on weight-$w$ Paulis tends to the
-uniform measure on the full Pauli group.  The decoder's output is
-a function of the syndrome, and the distribution of
-$D(E) \cdot E$ under the uniform measure on the Pauli group is uniform
-over the union $\mathcal{S} \cup \mathcal{L}$ modulo stabilizers.
-Hence $P_L^w$ tends to the fraction of non-stabilizer cosets in
-$\mathcal{L} / \mathcal{S}$, which is $(2^k - 1)/2^k$.
+\section{Monotonicity: Reduction to a Combinatorial Inequality}
+\label{sec:monotonicity}
 
-\section{Phase II: Analytic Regularity (conditional)}
+The general monotonicity question, ``does
+$P_L^{w_1} \leq P_L^{w_2}$ for all $w_1 \leq w_2$?'', does not have a
+universally positive answer in the abstract stabilizer-code setting;
+we discuss this in Section~\ref{sec:monotonicity-open}.  In this
+section we give a clean \emph{reduction}: monotonicity reduces
+to an integer inequality on Finset cardinalities, which can be
+verified per code.
 
-The original plan targeted three claims: strict monotonicity, discrete
-log-concavity of $1/2 - P_L^w$, and existence of a unique inflection.
+\subsection{The Pair-Cardinality Inequality}
 
-\paragraph{Status.}
-Empirical analysis on the fitted S-curve family reveals that
-$\log(1/2 - f_t[\theta](w))$ is \emph{concave} on the rising segment
-$w \in [t+1, w^\star]$ (where $w^\star$ is the sigmoid inflection)
-but becomes \emph{convex} on the saturation segment $w \in
-[w^\star, n]$.  The convex behaviour in the saturation regime is
-directly traceable to the term $\beta/\sqrt{w-t}$ in the S-curve
-which gives a positive second derivative to the log.
+\begin{definition}[Pair-cardinality inequality; Lean: \texttt{PairCardIneq}]
+\label{def:pair-card}
+For a stabilizer code $\mathcal{C}$, perfect MWPM decoder $D$, and
+weight $w$,
+$$\mathrm{PairCardIneq}_{\mathcal{C}, D}(w) \quad\Longleftrightarrow\quad
+|\mathrm{fail}(w)| \cdot |\mathrm{wt}(w+1)|
+\;\leq\;
+|\mathrm{fail}(w+1)| \cdot |\mathrm{wt}(w)|,$$
+where $\mathrm{fail}(w)$ is the Finset of weight-$w$ Paulis
+producing a logical error under $D$, and $\mathrm{wt}(w)$ is the
+Finset of all weight-$w$ Paulis.
+\end{definition}
 
-\paragraph{Implication.}
-The log-concavity claim in its original universal form is
-\emph{false}.  The plan's Phase~II requires either:
+\subsection{Reduction Theorems}
+
+\begin{lemma}[Arithmetic reduction; Lean: \texttt{monotone\_step\_via\_cards}]
+\label{lem:arith-reduction}
+Let $N_{f,w}, N_{f,w+1}, N_{w}, N_{w+1} \in \mathbb{N}$ with
+$N_w > 0$ and $N_{w+1} > 0$.  If
+$N_{f,w} \cdot N_{w+1} \leq N_{f,w+1} \cdot N_w,$
+then as rationals,
+$$\frac{N_{f,w}}{N_w} \;\leq\; \frac{N_{f,w+1}}{N_{w+1}}.$$
+\end{lemma}
+\begin{proof}
+Cross-multiplication: apply \texttt{div\_le\_div\_iff} (mathlib)
+after casting to $\mathbb{Q}$, and use \texttt{exact\_mod\_cast} on
+the hypothesis.
+\qed
+\end{proof}
+
+\begin{theorem}[Step reduction for $P_L$; Lean: \texttt{monotone\_step\_of\_PairCardIneq}]
+\label{thm:step}
+If $|\mathrm{wt}(w)| > 0$ and $|\mathrm{wt}(w+1)| > 0$ and
+$\mathrm{PairCardIneq}_{\mathcal{C}, D}(w)$ holds, then
+$P_L^{w}(\mathcal{C}, D) \leq P_L^{w+1}(\mathcal{C}, D)$.
+\end{theorem}
+\begin{proof}
+Unfold $P_L^w$ (which returns the ratio when the denominator is
+positive), then apply Lemma~\ref{lem:arith-reduction}.
+\qed
+\end{proof}
+
+\begin{theorem}[Chained monotonicity reduction; Lean: \texttt{monotone\_of\_PairCardIneq}]
+\label{thm:chain}
+Suppose $w_1 \leq w_2$; suppose $|\mathrm{wt}(w)| > 0$ for all
+$w \in [w_1, w_2]$; and suppose
+$\mathrm{PairCardIneq}_{\mathcal{C}, D}(w)$ holds for every
+$w \in [w_1, w_2)$.  Then
+$P_L^{w_1}(\mathcal{C}, D) \leq P_L^{w_2}(\mathcal{C}, D)$.
+\end{theorem}
+\begin{proof}
+By induction on the $\mathrm{Nat.le}$ relation, using
+Theorem~\ref{thm:step} at each step.
+\qed
+\end{proof}
+
+This completes the abstract reduction.  The entire question of
+monotonicity at weight $w \to w+1$ is now a purely integer
+inequality about two Finset cardinalities.
+
+\section{What Remains Open}
+\label{sec:monotonicity-open}
+
+We have reduced monotonicity to the pair-cardinality inequality
+(Definition~\ref{def:pair-card}).  Whether this inequality holds
+is still open in general.
+
+\subsection{It is not universally true}
+
+For abstract stabilizer codes, $\mathrm{PairCardIneq}_{\mathcal{C},
+D}(w)$ can fail at specific weights.  Brute-force enumeration
+of small codes reveals:
+
+\begin{itemize}
+\item For the $[[5,1,3]]$ perfect code:
+$P_L^2 = 1 > P_L^3 = 7/9 > P_L^4 = 2/3$.
+\item For the Steane $[[7,1,3]]$ code:
+$P_L^2 = 7/9 > P_L^3 = 11/15$.
+\item For the rotated surface code at $d = 3$ (data-only, 9
+    qubits): small oscillations in the saturation tail
+    ($P_L^5 \approx 0.7654 > P_L^6 \approx 0.7627$).
+\end{itemize}
+
+These counterexamples all occur either for perfect codes (where
+every weight-$(t+1)$ error fails) or in the saturation regime of
+small codes.
+
+\subsection{The target is circuit-level compiled codes}
+
+The physically relevant setting for our application is the
+\emph{circuit-level compiled surface code}: the stabilizer code
+obtained from the full compiled memory-experiment circuit
+(data qubits, ancillae, $r$ rounds of syndrome extraction,
+measurement errors, hook errors).  This code has
+$C(d, r) \approx 8 d^2 r$ fault locations, which for even small
+$(d, r)$ places it well beyond brute-force enumeration.
+
+The data-only counterexamples above do \emph{not} apply at circuit
+level.  Empirically (Stim Monte-Carlo experiments), circuit-level
+$P_L^w$ is smooth and consistent with a rising S-curve followed by
+saturation, so $\mathrm{PairCardIneq}$ is expected to hold on the
+rising portion; but we have no proof.
+
+The Lean library captures this cleanly: a file
+\texttt{Surface.lean} defines an abstract property
+\texttt{IsLatticeCode} (stabilizer weights bounded above, logical-
+error weights bounded below), and states a conjectural theorem
+that monotonicity holds on $[0, n - 2 \ell_{\log}]$ for such codes.
+This conjecture is the one remaining \texttt{sorry} in the library.
+
+\subsection{Summary of open questions}
+
 \begin{enumerate}
-\item weakening to a \emph{sectional} log-concavity statement
-    restricted to $w \in [t+1, w^\star]$, or
-\item replacing log-concavity with a different regularity
-    property (e.g.\ unique sign change of $\Delta^2 P_L^w$).
+\item Does $\mathrm{PairCardIneq}_{\mathcal{C}, D}(w)$ hold for
+the circuit-level compiled surface code at $d \geq 3$ and all
+$w \in [0, n - 2\ell_{\log}]$?  This is the specialisation of the
+pair-cardinality inequality to the physically relevant setting.
+\item Is there a clean structural hypothesis on $\mathcal{C}$
+(e.g.\ CSS, translation-invariant, LDPC with local stabilizers)
+under which $\mathrm{PairCardIneq}$ is provable by a coupling or
+FKG-type argument?
+\item A universal-approximation theorem for the three-parameter
+S-curve family within an appropriate regularity class of functions
+$[0, n] \to [0, 1]$ remains to be developed.
 \end{enumerate}
-This reformulation is pending explicit approval before Phase~II
-is reopened; see the companion repository issue tracker.
 
-\section{Phase III: S-Curve Approximation Theorem}
+\section{Conclusion}
 
-[To be filled in milestone M3.]
+We have set up a minimal formal framework for reasoning about the
+weight-conditional logical error rate $P_L^w$ of stabilizer codes
+under perfect MWPM.  Four structural properties of $P_L^w$ are
+unconditionally proved.  The monotonicity question is reduced,
+cleanly and formally, to a single integer inequality on Finset
+cardinalities.  The original aim --- a first-principles derivation
+of the S-curve functional form --- is not reached, but the
+present framework isolates the remaining combinatorial content and
+makes it amenable to either code-specific proof or machine-checked
+enumeration.
 
 \begin{thebibliography}{9}
 \bibitem{ScaLER}
 J.\ Z.\ Ye and J.\ Palsberg,
-\emph{ScaLER: Scalable Logical Error Rate Testing for Quantum Error Correction},
+\emph{ScaLER: Scalable Logical Error Rate Testing for Quantum Error
+Correction},
 2025.
 \end{thebibliography}
 
