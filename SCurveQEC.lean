@@ -4,3 +4,5 @@ import SCurveQEC.Stabilizer
 import SCurveQEC.Decoder
 import SCurveQEC.ErrorRate
 import SCurveQEC.Basic
+import SCurveQEC.Monotone
+import SCurveQEC.Surface
